@@ -124,6 +124,8 @@ contract NFTMarket is ReentrancyGuard, IERC721Receiver {
             //transfer back to previous offerer
             payTo(idToMarketItem[itemId].currentOfferer, idToMarketItem[itemId].currentOfferValue);
         }
+        payTo(owner, listingPrice);
+
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
     }
 
@@ -162,6 +164,7 @@ contract NFTMarket is ReentrancyGuard, IERC721Receiver {
         idToMarketItem[itemId].owner = idToMarketItem[itemId].currentOfferer;
         idToMarketItem[itemId].sold = true;
 
+        payTo(owner, listingPrice);
         payTo(msg.sender, idToMarketItem[itemId].currentOfferValue);
     }
 
@@ -215,7 +218,7 @@ contract NFTMarket is ReentrancyGuard, IERC721Receiver {
         require(msg.sender == owner, "Only owner can set listing price");
         listingPrice = price;
     }
-    
+
     function onERC721Received(
         address operator,
         address from,
