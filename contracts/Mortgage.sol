@@ -155,7 +155,7 @@ contract Mortgage is IERC721Receiver {
         require(_poolId < poolCounter, "Pool does not exist");
         require(pools[_poolId].state == true, "Pool is closed");
         uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
-        require(msg.value == price);
+        require(msg.value >= price);
         pools[_poolId].totalPoolAmount += msg.value;
 
         uint256 loanId = loanCounter;
@@ -179,17 +179,19 @@ contract Mortgage is IERC721Receiver {
         emit OfferMade(_poolId, pools[_poolId].tokenAddress, msg.value, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender);
     }
 
-    function LenderRevokeOffer(uint256 _poolId) external {
+    function LenderRevokeOffer(uint256 _poolId, uint256 _loanId) external {
         require(_poolId < pools.length, "Pool does not exist");
         require(pools[_poolId].state == true, "Pool is closed");
-        uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
-        require(poolLenderFunds[_poolId][msg.sender] >= price, "You did not offered!");
-        pools[_poolId].totalPoolAmount -= price;
+        uint256 value = loans[_loanId].amount;
+        require(poolLenderFunds[_poolId][msg.sender] >= value, "You did not offered!");
+        pools[_poolId].totalPoolAmount -= value;
         //transfer msg.value to lender
-        payTo(msg.sender, price);
-        poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(price);
+        payTo(msg.sender, value);
+        poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(value);
 
-        emit OfferRevoke(_poolId, pools[_poolId].tokenAddress, price, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender);
+        delete loans[_loanId];
+
+        emit OfferRevoke(_poolId, pools[_poolId].tokenAddress, value, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender);
     }
 
     function BorrowerTakeLoan(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external {
@@ -209,10 +211,11 @@ contract Mortgage is IERC721Receiver {
         );
         //aprove by code first
         token.safeTransferFrom(msg.sender, address(this), _tokenId);
-        uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
-        pools[_poolId].totalPoolAmount -= price;
-        payTo(msg.sender, price);
-        emit BorrowerOffer(_poolId, pools[_poolId].tokenAddress, price, _tokenId, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender, msg.sender);
+        // uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
+        uint256 value = loans[_loanId].amount;
+        pools[_poolId].totalPoolAmount -= value;
+        payTo(msg.sender, value);
+        emit BorrowerOffer(_poolId, pools[_poolId].tokenAddress, value, _tokenId, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender, msg.sender);
     }
     
     function BorrowerPayLoan(uint256 _poolId, uint256 _tokenId, address _lender, uint256 _loanId) external payable {
