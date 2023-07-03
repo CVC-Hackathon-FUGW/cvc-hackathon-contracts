@@ -4,9 +4,10 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 
-contract NFTMarket is ReentrancyGuard {
+contract NFTMarket is ReentrancyGuard, IERC721Receiver {
     using Counters for Counters.Counter;
     Counters.Counter private _itemIds;
     Counters.Counter private _itemsSold;
@@ -213,5 +214,17 @@ contract NFTMarket is ReentrancyGuard {
     function setListingPrice(uint256 price) public {
         require(msg.sender == owner, "Only owner can set listing price");
         listingPrice = price;
+    }
+    
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        return
+            bytes4(
+                keccak256("onERC721Received(address,address,uint256,bytes)")
+            );
     }
 }

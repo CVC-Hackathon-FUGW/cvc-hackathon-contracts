@@ -143,7 +143,7 @@ contract Mortgage is IERC721Receiver {
         emit PoolCreated(poolId, _tokenAddress, 0, _APY, _duration, true);
     }
 
-    function UpdatePool(uint256 _poolId, uint256 _APY, uint256 _duration, bool _state) external {
+    function UpdatePool(uint256 _poolId, uint256 _APY, uint256 _duration, bool _state) external onlyAdmin {
         pools[_poolId].state = _state;
         pools[_poolId].APY = _APY;
         pools[_poolId].duration = _duration;
