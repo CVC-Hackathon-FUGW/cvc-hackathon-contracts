@@ -155,7 +155,7 @@ contract Mortgage is IERC721Receiver {
         require(_poolId < poolCounter, "Pool does not exist");
         require(pools[_poolId].state == true, "Pool is closed");
         uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
-        require(msg.value >= price);
+        require(msg.value >= price, "Offer must be higher than floor price!");
         pools[_poolId].totalPoolAmount += msg.value;
 
         uint256 loanId = loanCounter;
@@ -182,6 +182,7 @@ contract Mortgage is IERC721Receiver {
     function LenderRevokeOffer(uint256 _poolId, uint256 _loanId) external {
         require(_poolId < pools.length, "Pool does not exist");
         require(pools[_poolId].state == true, "Pool is closed");
+        require(loans[_loanId].lender == msg.sender, "You are not the lender of this loan");
         uint256 value = loans[_loanId].amount;
         require(poolLenderFunds[_poolId][msg.sender] >= value, "You did not offered!");
         pools[_poolId].totalPoolAmount -= value;
