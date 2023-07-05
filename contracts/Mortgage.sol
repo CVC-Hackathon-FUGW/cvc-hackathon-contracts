@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 contract Mortgage is IERC721Receiver {
     using SafeMath for uint256;
+    uint256 borrowPrice = 1000000000000000;
+    //default borrow price is 0.001 XRC
     struct Loan {
         uint256 loanId;
         address lender;
@@ -212,7 +214,7 @@ contract Mortgage is IERC721Receiver {
         );
         //aprove by code first
         token.safeTransferFrom(msg.sender, address(this), _tokenId);
-        // uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
+
         uint256 value = loans[_loanId].amount;
         pools[_poolId].totalPoolAmount -= value;
         payTo(msg.sender, value);
@@ -239,9 +241,9 @@ contract Mortgage is IERC721Receiver {
         token.safeTransferFrom(address(this), msg.sender, _tokenId);
         uint256 totalAmount = loans[_loanId].amount.add(interest);
         require(msg.value >= totalAmount, "Insufficient payment");
+        payTo(owner, borrowPrice);
         payTo(_lender, totalAmount);
-        // Update the pool's totalPoolAmount
-        // pools[_poolId].totalPoolAmount = pools[_poolId].totalPoolAmount.sub(loans[_loanId].amount);
+
         poolLenderFunds[_poolId][_lender] = poolLenderFunds[_poolId][_lender].sub(loans[_loanId].amount);
         //delete loan
         delete loans[_loanId];
@@ -249,8 +251,9 @@ contract Mortgage is IERC721Receiver {
         emit PayLoan(_poolId, pools[_poolId].tokenAddress, totalAmount, _tokenId, pools[_poolId].APY, pools[_poolId].duration, msg.sender, msg.sender);
     }
 
-    function LenderClaimNFT(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external {
+    function LenderClaimNFT(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external payable {
         Pool storage pool = pools[_poolId];
+        require(msg.value == borrowPrice, "You must pay the borrow price!");
         require(pool.state == true, "Pool is closed");
         require(loans[_loanId].lender == msg.sender, "Only the lender can claim the NFT");
         require(loans[_loanId].tokenId == _tokenId, "Token ID does not match the loan");
@@ -259,6 +262,7 @@ contract Mortgage is IERC721Receiver {
         IERC721 token = IERC721(loans[_loanId].tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "NFT is not held by the contract");
 
+        payTo(owner, msg.value);
         token.safeTransferFrom(address(this), loans[_loanId].lender, _tokenId);
         poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(loans[_loanId].amount);
 
@@ -275,6 +279,10 @@ contract Mortgage is IERC721Receiver {
             loans[_loanId].lender,
             loans[_loanId].borrower
         );
+    }
+
+    function setBorrowPrice(uint256 price) external onlyAdmin {
+        borrowPrice = price;
     }
 
     function payTo(address to, uint amount) internal {
