@@ -13,8 +13,8 @@ contract NFTMarket is ReentrancyGuard, IERC721Receiver {
     Counters.Counter private _itemsSold;
 
     address owner;
-    uint256 listingPrice = 10000000000000000;
-    //default listing price = 0.01 ether
+    uint256 listingPrice = 1000000000000000;
+    //default listing price = 0.001 xrc
 
     constructor() {
         owner = msg.sender;
@@ -125,6 +125,8 @@ contract NFTMarket is ReentrancyGuard, IERC721Receiver {
             payTo(idToMarketItem[itemId].currentOfferer, idToMarketItem[itemId].currentOfferValue);
         }
         payTo(owner, listingPrice);
+        idToMarketItem[itemId].owner = msg.sender;
+        idToMarketItem[itemId].sold = true;
 
         IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
     }
