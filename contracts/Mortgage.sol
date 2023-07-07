@@ -221,8 +221,10 @@ contract Mortgage is IERC721Receiver {
         emit BorrowerOffer(_poolId, pools[_poolId].tokenAddress, value, _tokenId, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender, msg.sender);
     }
     
-    function BorrowerPayLoan(uint256 _poolId, uint256 _tokenId, address _lender, uint256 _loanId) external payable {
+    function BorrowerPayLoan(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external payable {
         require(pools[_poolId].state == true, "Pool is closed");
+
+        address lender = loans[_loanId].lender;
         
         uint256 startTime = loans[_loanId].startTime;
         require(block.timestamp < startTime + pools[_poolId].duration * 86400 , "Loan is passed");
@@ -242,9 +244,9 @@ contract Mortgage is IERC721Receiver {
         uint256 totalAmount = loans[_loanId].amount.add(interest);
         require(msg.value >= totalAmount, "Insufficient payment");
         payTo(owner, borrowPrice);
-        payTo(_lender, totalAmount);
+        payTo(lender, totalAmount);
 
-        poolLenderFunds[_poolId][_lender] = poolLenderFunds[_poolId][_lender].sub(loans[_loanId].amount);
+        poolLenderFunds[_poolId][lender] = poolLenderFunds[_poolId][lender].sub(loans[_loanId].amount);
         //delete loan
         delete loans[_loanId];
         
