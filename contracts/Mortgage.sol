@@ -253,14 +253,13 @@ contract Mortgage is IERC721Receiver {
         emit PayLoan(_poolId, pools[_poolId].tokenAddress, totalAmount, _tokenId, pools[_poolId].APY, pools[_poolId].duration, msg.sender, msg.sender);
     }
 
-    function LenderClaimNFT(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external payable {
+    function LenderClaimNFT(uint256 _poolId, uint256 _loanId) external payable {
         Pool storage pool = pools[_poolId];
         require(msg.value == borrowPrice, "You must pay the borrow price!");
         require(pool.state == true, "Pool is closed");
         require(loans[_loanId].lender == msg.sender, "Only the lender can claim the NFT");
-        require(loans[_loanId].tokenId == _tokenId, "Token ID does not match the loan");
         require(block.timestamp > loans[_loanId].startTime + loans[_loanId].duration * 86400, "Loan duration has not passed");
-
+        uint256 _tokenId = loans[_loanId].tokenId;
         IERC721 token = IERC721(loans[_loanId].tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "NFT is not held by the contract");
 
