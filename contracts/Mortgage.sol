@@ -221,9 +221,9 @@ contract Mortgage is IERC721Receiver {
         emit BorrowerOffer(_poolId, pools[_poolId].tokenAddress, value, _tokenId, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender, msg.sender);
     }
     
-    function BorrowerPayLoan(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external payable {
+    function BorrowerPayLoan(uint256 _poolId, uint256 _loanId) external payable {
         require(pools[_poolId].state == true, "Pool is closed");
-
+        uint256 _tokenId = loans[_loanId].tokenId;
         address lender = loans[_loanId].lender;
         
         uint256 startTime = loans[_loanId].startTime;
