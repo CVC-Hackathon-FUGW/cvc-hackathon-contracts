@@ -4,23 +4,61 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract NFTCollection is ERC721Enumerable, Ownable {
+    using Strings for uint256;
+    
+    // Optional mapping for token URIs
+    mapping (uint256 => string) private _tokenURIs;
+
+    // Base URI
+    string private _baseURIextended;
 
 
-contract FootballerToken is ERC721URIStorage {
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
-    // address contractAddress;
-
-    constructor() ERC721("Manchester City 2022 2023 Collection", "MCI") {
+    constructor(string memory _name, string memory _symbol)
+        ERC721(_name, _symbol)
+    {}
+    
+    function setBaseURI(string memory baseURI_) external onlyOwner() {
+        _baseURIextended = baseURI_;
     }
+    
+    function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal virtual {
+        require(_exists(tokenId), "ERC721Metadata: URI set of nonexistent token");
+        _tokenURIs[tokenId] = _tokenURI;
+    }
+    
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseURIextended;
+    }
+    
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
 
-    function mintToken(string memory tokenURI) public returns (uint) {
-        _tokenIds.increment();
-        uint256 newItemId = _tokenIds.current();
+        string memory _tokenURI = _tokenURIs[tokenId];
+        string memory base = _baseURI();
+        
+        // If there is no base URI, return the token URI.
+        if (bytes(base).length == 0) {
+            return _tokenURI;
+        }
+        // If both are set, concatenate the baseURI and tokenURI (via abi.encodePacked).
+        if (bytes(_tokenURI).length > 0) {
+            return string(abi.encodePacked(base, _tokenURI));
+        }
+        // If there is a baseURI but no tokenURI, concatenate the tokenID to the baseURI.
+        return string(abi.encodePacked(base, tokenId.toString()));
+    }
+    
 
-        _mint(msg.sender, newItemId);
-        _setTokenURI(newItemId, tokenURI);
-        // setApprovalForAll(contractAddress, true);
-        return newItemId;
+    function mint(
+        address _to,
+        uint256 _tokenId,
+        string memory tokenURI_
+    ) external onlyOwner() {
+        _mint(_to, _tokenId);
+        _setTokenURI(_tokenId, tokenURI_);
     }
 }
