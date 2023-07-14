@@ -16,6 +16,7 @@ contract Checkin is ERC20, IERC721Receiver {
     constructor(address _nftAddress) ERC20("Rental", "RENT"){
         owner = msg.sender;
         nftAddress = _nftAddress;
+        _mint(address(this), 10000000 * 10**decimals());
         _mint(msg.sender, 1000000000 * 10**decimals());
     }
 
