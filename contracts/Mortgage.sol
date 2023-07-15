@@ -129,6 +129,7 @@ contract Mortgage is IERC721Receiver {
         require(_duration > 0, "Duration must be greater than 0");
         require(_tokenAddress != address(0), "Token address must be valid");
         require(!poolTokenAddress[_tokenAddress], "Token address already exists");    
+        poolCounter++;
         uint256 poolId = poolCounter;
         pools.push(Pool({
             poolId: poolId,
@@ -138,7 +139,6 @@ contract Mortgage is IERC721Receiver {
             duration: _duration,
             state: true
         }));
-        poolCounter++;
 
         poolTokenAddress[_tokenAddress] = true;
 
@@ -159,7 +159,7 @@ contract Mortgage is IERC721Receiver {
         uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
         require(msg.value >= price, "Offer must be higher than floor price!");
         pools[_poolId].totalPoolAmount += msg.value;
-
+        loanCounter++;
         uint256 loanId = loanCounter;
         //create a Loan
         loans.push(Loan({
@@ -174,7 +174,6 @@ contract Mortgage is IERC721Receiver {
             tokenAddress: pools[_poolId].tokenAddress,
             state: false
         }));
-        loanCounter++;
 
         poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].add(msg.value);
 
