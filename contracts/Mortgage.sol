@@ -34,18 +34,14 @@ contract Mortgage is IERC721Receiver {
 
     address public owner;
 
-    Pool[] public pools;
-    Loan[] public loans;
+    mapping(uint256 => Loan) public idToLoan;
+    mapping(uint256 => Pool) public idToPool;
     //gia san` cua moi pool
     mapping(address => uint256) public floorPrice;
-    mapping(address => address)  public lenderToBorrower;
     mapping(uint256 => mapping(address => uint256)) public poolLenderFunds;
     mapping(address => bool) public poolTokenAddress;
     uint256 public poolCounter;
     uint256 public loanCounter;
-    //mapping addressToLoan
-
-    mapping(address => Loan[]) public lenderLoans;
 
     event PoolCreated(
         uint256 indexed poolId,
@@ -131,14 +127,16 @@ contract Mortgage is IERC721Receiver {
         require(!poolTokenAddress[_tokenAddress], "Token address already exists");    
         poolCounter++;
         uint256 poolId = poolCounter;
-        pools.push(Pool({
+
+        idToPool[poolId] = Pool({
             poolId: poolId,
             tokenAddress: _tokenAddress,
             totalPoolAmount: 0,
             APY: _APY,
             duration: _duration,
             state: true
-        }));
+        });
+
 
         poolTokenAddress[_tokenAddress] = true;
 
@@ -146,67 +144,65 @@ contract Mortgage is IERC721Receiver {
     }
 
     function UpdatePool(uint256 _poolId, uint256 _APY, uint256 _duration, bool _state) external onlyAdmin {
-        pools[_poolId].state = _state;
-        pools[_poolId].APY = _APY;
-        pools[_poolId].duration = _duration;
+        idToPool[_poolId].state = _state;
+        idToPool[_poolId].APY = _APY;
+        idToPool[_poolId].duration = _duration;
 
         emit UpdatedPool(_poolId, _APY, _duration, _state);
     }
 
     function LenderOffer(uint256 _poolId) external payable {
-        require(_poolId < poolCounter, "Pool does not exist");
-        require(pools[_poolId].state == true, "Pool is closed");
-        uint256 price = getFloorPrice(pools[_poolId].tokenAddress);
+        require(idToPool[_poolId].state == true, "Pool is closed");
+        uint256 price = getFloorPrice(idToPool[_poolId].tokenAddress);
         require(msg.value >= price, "Offer must be higher than floor price!");
-        pools[_poolId].totalPoolAmount += msg.value;
+        idToPool[_poolId].totalPoolAmount += msg.value;
         loanCounter++;
         uint256 loanId = loanCounter;
         //create a Loan
-        loans.push(Loan({
+
+        idToLoan[loanId] = Loan({
             loanId: loanId,
             lender: msg.sender,
             borrower: address(0),
             amount: msg.value,
             startTime: 0,
-            duration: pools[_poolId].duration,
+            duration: idToPool[_poolId].duration,
             tokenId: 0,
             poolId: _poolId,
-            tokenAddress: pools[_poolId].tokenAddress,
+            tokenAddress: idToPool[_poolId].tokenAddress,
             state: false
-        }));
+        });
 
         poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].add(msg.value);
 
-        emit OfferMade(_poolId, pools[_poolId].tokenAddress, msg.value, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender);
+        emit OfferMade(_poolId, idToPool[_poolId].tokenAddress, msg.value, idToPool[_poolId].APY, idToPool[_poolId].duration, idToPool[_poolId].state, msg.sender);
     }
 
     function LenderRevokeOffer(uint256 _poolId, uint256 _loanId) external {
-        require(_poolId < pools.length, "Pool does not exist");
-        require(pools[_poolId].state == true, "Pool is closed");
-        require(loans[_loanId].lender == msg.sender, "You are not the lender of this loan");
-        uint256 value = loans[_loanId].amount;
+        require(idToPool[_poolId].state == true, "Pool is closed");
+        require(idToLoan[_loanId].lender == msg.sender, "You are not the lender of this loan");
+        uint256 value = idToLoan[_loanId].amount;
         require(poolLenderFunds[_poolId][msg.sender] >= value, "You did not offered!");
-        pools[_poolId].totalPoolAmount -= value;
+        idToPool[_poolId].totalPoolAmount -= value;
         //transfer msg.value to lender
         payTo(msg.sender, value);
         poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(value);
 
-        delete loans[_loanId];
+        delete idToLoan[_loanId];
 
-        emit OfferRevoke(_poolId, pools[_poolId].tokenAddress, value, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender);
+        emit OfferRevoke(_poolId, idToPool[_poolId].tokenAddress, value, idToPool[_poolId].APY, idToPool[_poolId].duration, idToPool[_poolId].state, msg.sender);
     }
 
     function BorrowerTakeLoan(uint256 _poolId, uint256 _tokenId, uint256 _loanId) external {
-        require(_poolId < poolCounter, "Pool does not exist");
-        require(pools[_poolId].state == true, "Pool is closed");
-        require(pools[_poolId].totalPoolAmount > 0, "Pool is empty");
+        require(idToPool[_poolId].state == true, "Pool is closed");
+        require(idToPool[_poolId].totalPoolAmount > 0, "Pool is empty");
 
-        loans[_loanId].borrower = msg.sender;
-        loans[_loanId].startTime = block.timestamp;
-        loans[_loanId].tokenId = _tokenId;
-        loans[_loanId].state = true;
+        idToLoan[_loanId].borrower = msg.sender;
+        idToLoan[_loanId].startTime = block.timestamp;
+        idToLoan[_loanId].tokenId = _tokenId;
+        idToLoan[_loanId].state = true;
 
-        IERC721 token = IERC721(pools[_poolId].tokenAddress);
+        IERC721 token = IERC721(idToPool[_poolId].tokenAddress);
         require(
             token.ownerOf(_tokenId) == msg.sender,
             "You do not own the NFT"
@@ -214,70 +210,68 @@ contract Mortgage is IERC721Receiver {
         //aprove by code first
         token.safeTransferFrom(msg.sender, address(this), _tokenId);
 
-        uint256 value = loans[_loanId].amount;
-        pools[_poolId].totalPoolAmount -= value;
+        uint256 value = idToLoan[_loanId].amount;
+        idToPool[_poolId].totalPoolAmount -= value;
         payTo(msg.sender, value);
-        emit BorrowerOffer(_poolId, pools[_poolId].tokenAddress, value, _tokenId, pools[_poolId].APY, pools[_poolId].duration, pools[_poolId].state, msg.sender, msg.sender);
+        emit BorrowerOffer(_poolId, idToPool[_poolId].tokenAddress, value, _tokenId, idToPool[_poolId].APY, idToPool[_poolId].duration, idToPool[_poolId].state, msg.sender, msg.sender);
     }
     
     function BorrowerPayLoan(uint256 _poolId, uint256 _loanId) external payable {
-        require(pools[_poolId].state == true, "Pool is closed");
-        uint256 _tokenId = loans[_loanId].tokenId;
-        address lender = loans[_loanId].lender;
+        require(idToPool[_poolId].state == true, "Pool is closed");
+        uint256 _tokenId = idToLoan[_loanId].tokenId;
+        address lender = idToLoan[_loanId].lender;
         
-        uint256 startTime = loans[_loanId].startTime;
-        require(block.timestamp < startTime + pools[_poolId].duration * 86400 , "Loan is passed");
+        uint256 startTime = idToLoan[_loanId].startTime;
+        require(block.timestamp < startTime + idToPool[_poolId].duration * 86400 , "Loan is passed");
         uint256 durations = (block.timestamp - startTime)/86400;
-        if (durations < pools[_poolId].duration){
+        if (durations < idToPool[_poolId].duration){
             //prevent spamming loan
             durations += 1;
         } 
-        uint256 interest = (loans[_loanId].amount * pools[_poolId].APY * durations)/100/365;
+        uint256 interest = (idToLoan[_loanId].amount * idToPool[_poolId].APY * durations)/100/365;
 
-        IERC721 token = IERC721(pools[_poolId].tokenAddress);
+        IERC721 token = IERC721(idToPool[_poolId].tokenAddress);
         require(
             token.ownerOf(_tokenId) == address(this),
             "the NFT does not in the pool"
         );
         token.safeTransferFrom(address(this), msg.sender, _tokenId);
-        uint256 totalAmount = loans[_loanId].amount.add(interest);
+        uint256 totalAmount = idToLoan[_loanId].amount.add(interest);
         require(msg.value >= totalAmount, "Insufficient payment");
         payTo(owner, borrowPrice);
         payTo(lender, totalAmount);
 
-        poolLenderFunds[_poolId][lender] = poolLenderFunds[_poolId][lender].sub(loans[_loanId].amount);
+        poolLenderFunds[_poolId][lender] = poolLenderFunds[_poolId][lender].sub(idToLoan[_loanId].amount);
         //delete loan
-        delete loans[_loanId];
-        
-        emit PayLoan(_poolId, pools[_poolId].tokenAddress, totalAmount, _tokenId, pools[_poolId].APY, pools[_poolId].duration, msg.sender, msg.sender);
+        delete idToLoan[_loanId];
     }
 
     function LenderClaimNFT(uint256 _poolId, uint256 _loanId) external payable {
-        Pool storage pool = pools[_poolId];
+        Pool storage pool = idToPool[_poolId];
         require(msg.value == borrowPrice, "You must pay the borrow price!");
         require(pool.state == true, "Pool is closed");
-        require(loans[_loanId].lender == msg.sender, "Only the lender can claim the NFT");
-        require(block.timestamp > loans[_loanId].startTime + loans[_loanId].duration * 86400, "Loan duration has not passed");
-        uint256 _tokenId = loans[_loanId].tokenId;
-        IERC721 token = IERC721(loans[_loanId].tokenAddress);
+        require(idToLoan[_loanId].lender == msg.sender, "Only the lender can claim the NFT");
+        require(block.timestamp > idToLoan[_loanId].startTime + idToLoan[_loanId].duration * 86400, "Loan duration has not passed");
+        uint256 _tokenId = idToLoan[_loanId].tokenId;
+        IERC721 token = IERC721(idToLoan[_loanId].tokenAddress);
         require(token.ownerOf(_tokenId) == address(this), "NFT is not held by the contract");
 
         payTo(owner, msg.value);
-        token.safeTransferFrom(address(this), loans[_loanId].lender, _tokenId);
-        poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(loans[_loanId].amount);
+        token.safeTransferFrom(address(this), idToLoan[_loanId].lender, _tokenId);
+        poolLenderFunds[_poolId][msg.sender] = poolLenderFunds[_poolId][msg.sender].sub(idToLoan[_loanId].amount);
 
-        delete loans[_loanId];
+        delete idToLoan[_loanId];
 
         emit LenderClaimToken(
             _poolId,
-            loans[_loanId].tokenAddress,
-            loans[_loanId].amount,
+            idToLoan[_loanId].tokenAddress,
+            idToLoan[_loanId].amount,
             _tokenId,
             pool.APY,
             pool.duration,
-            loans[_loanId].state,
-            loans[_loanId].lender,
-            loans[_loanId].borrower
+            idToLoan[_loanId].state,
+            idToLoan[_loanId].lender,
+            idToLoan[_loanId].borrower
         );
     }
 
@@ -302,16 +296,8 @@ contract Mortgage is IERC721Receiver {
         return floorPrice[_tokenAddress];
     }
 
-    function getAllPool() external view returns(Pool[] memory) {
-        return pools;
-    }
-
     function getExactPool(uint256 _poolId) external view returns(Pool memory) {
-        return pools[_poolId];
-    }
-
-    function getAllLoans() external view returns(Loan[] memory) {
-        return loans;
+        return idToPool[_poolId];
     }
     
     function onERC721Received(
